@@ -1,13 +1,14 @@
-var Election = artifacts.require("./Election.sol");
+var Election = artifacts.require("./Election.sol");   
 
 contract("Election", function(accounts) {
-  var electionInstance;
+  var electionInstance;  // we need to assign the instance returned from the election.deployed() instance to a global variable 
+  //so that it can be accessed by all the test functions
 
   it("initializes with two candidates", function() {
     return Election.deployed().then(function(instance) {
       return instance.candidatesCount();
     }).then(function(count) {
-      assert.equal(count, 2);
+      assert.equal(count, 3);
     });
   });
 
@@ -31,17 +32,24 @@ contract("Election", function(accounts) {
     return Election.deployed().then(function(instance) {
       electionInstance = instance;
       candidateId = 1;
-      return electionInstance.vote(candidateId, { from: accounts[0] });
-    }).then(function(receipt) {
+      return electionInstance.vote(candidateId, { from: accounts[0] });  // {from: accounts[0]} we can pass metadata to a function 
+      //                    and in our case we are passing the account that is going to vote (execute the vote function)
+        // when only need to specify the acocunt that is voting when testing
+        // Note : that even though that the vote function definition accepts only one variable with solidity we can pass meta data to the function
+    // from key is accessing the msg.sender variable
+
+
+      }).then(function(receipt) {   // vote function returns a transactio nreceipt because writing to the data layer of blockchain
+        // is not free => It consumes gas ( reading  from the data layer of blockchain is free)
       assert.equal(receipt.logs.length, 1, "an event was triggered");
-      assert.equal(receipt.logs[0].event, "votedEvent", "the event type is correct");
+      assert.equal(receipt.logs[0].event, "votedEvent", "the event type is correct");  
       assert.equal(receipt.logs[0].args._candidateId.toNumber(), candidateId, "the candidate id is correct");
-      return electionInstance.voters(accounts[0]);
+      return electionInstance.voters(accounts[0]);  // accessing the account that voted so that we can test if votecount incremented
     }).then(function(voted) {
-      assert(voted, "the voter was marked as voted");
+      assert(voted, "the voter was marked as voted");  // checking if accounts[0] (voted variable) holds the value true which means he voted
       return electionInstance.candidates(candidateId);
     }).then(function(candidate) {
-      var voteCount = candidate[2];
+      var voteCount = candidate[2];  // checking if the votecount variable has incremented
       assert.equal(voteCount, 1, "increments the candidate's vote count");
     })
   });
@@ -49,12 +57,13 @@ contract("Election", function(accounts) {
   it("throws an exception for invalid candiates", function() {
     return Election.deployed().then(function(instance) {
       electionInstance = instance;
-      return electionInstance.vote(99, { from: accounts[1] })
+      return electionInstance.vote(99, { from: accounts[1] })  // throwing an exception whenever the candidate that we are voting for is 
+      //                                                      beyond the candidatesCount variable
     }).then(assert.fail).catch(function(error) {
       assert(error.message.indexOf('revert') >= 0, "error message must contain revert");
       return electionInstance.candidates(1);
-    }).then(function(candidate1) {
-      var voteCount = candidate1[2];
+    }).then(function(candidate1) {   
+      var voteCount = candidate1[2];  //ensuring that candidate1 Vote count has not incremeented after throwing the exception
       assert.equal(voteCount, 1, "candidate 1 did not receive any votes");
       return electionInstance.candidates(2);
     }).then(function(candidate2) {
